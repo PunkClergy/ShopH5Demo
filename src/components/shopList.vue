@@ -3,7 +3,13 @@
   <div class="shop">
     <div class="shop-list" ref="shopListBox">
       <div class="goods" id="goods">
-        <ul class="goods-list fix" ref="goodsList">
+        <ul
+          class="goods-list fix"
+          ref="goodsList"
+          @touchstart="touchStart($event)"
+          @touchmove="touchMove($event)"
+          @touchend="touchEnd($event)"
+        >
           <li v-for="(item, index) in myData" :key="index">
             <a
               class="goods-a"
@@ -33,6 +39,13 @@
             </a>
           </li>
         </ul>
+        <div class="load-more" v-show="downFlag" ref="loadmore">
+          <div v-show="haveMore" class="load-container load">
+            <div class="loader">Loading...</div>
+            <div class="loader-tit">正在加载...</div>
+          </div>
+          <div v-show="!haveMore" class="loadingText">没有更多了</div>
+        </div>
       </div>
     </div>
   </div>
@@ -51,12 +64,86 @@ export default {
       myData: [],
       errorImg: "this.src='" + require("@/assets/img/lazy_default.png") + "'",
       pageNum: 20, //每页显示数量
-      pageNo: 0 //页码
+      pageNo: 0, //页码
+
+      downFlag: false,
+      scrollHt: 0, //滚动距离
+      maxScrollHt: "", //最大滚动相差值
+      startPosition: "", //初始位置
+      endPosition: "", //结束位置
+      baseHt: 20, //加载基准
+      moveY: 0,
+      moreHt: 0, //上拉加载高度
+      haveMore: true, //有更多数据
+      times: 0 //调用次数
     };
   },
 
   watch: {},
   methods: {
+    touchStart(e) {
+      console.log(e);
+      let touch = e.touches[0];
+      // 初始位置
+      this.startPosition = {
+        x: touch.pageX,
+        y: touch.pageY
+      };
+
+      if (this.$refs.goodsList) {
+        let loadmoreHt = parseFloat(
+          getComputedStyle(this.$refs.loadmore).height
+        );
+        if (isNaN(loadmoreHt)) {
+          loadmoreHt = 0;
+        }
+
+        this.contentHt =
+          parseFloat(getComputedStyle(this.$refs.goodsList).height) +
+          loadmoreHt;
+      } else {
+        this.contentHt = 0;
+      }
+      this.boxHt = parseFloat(getComputedStyle(this.$refs.shopListBox).height);
+      this.moreHt = parseFloat(
+        getComputedStyle(this.$el.querySelector(".load-more")).height
+      );
+
+      this.maxScrollHt = this.contentHt - this.boxHt;
+    },
+    // 下拉刷新
+    touchMove(e) {
+      // console.log(e);
+      // 获取下拉坐标
+      let touch = e.touches[0];
+      // let more = this.$el.querySelector(".load-more").style.display;
+      this.endPosition = {
+        x: touch.pageX,
+        y: touch.pageY
+      };
+      this.moveY = this.endPosition.y - this.startPosition.y;
+      if (this.moveY < 0) {
+        //上拉加载
+        if (this.scrollHt >= this.maxScrollHt - this.baseHt) {
+          this.downFlag = true;
+          if (this.myData.length >= 20) {
+            this.times++;
+            if (this.times == 1) {
+              this.pageNo++;
+              this.isInitData = false;
+              this.getListData();
+            }
+          } else {
+            this.haveMore = false;
+          }
+        }
+      } else if (this.moveY > 0) {
+        if (this.haveMore) {
+          this.downFlag = false;
+        }
+      }
+    },
+    touchEnd(e) {},
     // 跳转详情
     gotoDetail(id) {
       window.location.href = `..${url}/detail.html?id=${id}`;
@@ -74,7 +161,6 @@ export default {
           console.log("shopList===", res);
           that.myData = [];
           if (res.code == 1 && typeof res.data != undefined) {
-            console.log(res.data.shops);
             if (res.data.shops) {
               that.myData = res.data.shops;
             }
@@ -218,5 +304,73 @@ export default {
 .goods-list .quan-money span {
   font-size: 0.32rem;
   padding: 0 0.05rem;
+}
+
+.load-more {
+  width: auto;
+  height: auto;
+  display: flex;
+  text-align: center;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0 0.3rem 0;
+}
+.loadingText {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: auto;
+  font-size: 0.3rem;
+}
+
+/* loading动画 */
+.load-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: auto;
+}
+.load .loader {
+  font-size: 0;
+  text-indent: -9999rem;
+  border-top: 0.05rem solid rgba(0, 0, 0, 0.1);
+  border-right: 0.05rem solid rgba(0, 0, 0, 0.1);
+  border-bottom: 0.05rem solid rgba(0, 0, 0, 0.1);
+  border-left: 0.05rem solid #fc0786;
+  -webkit-animation: load 1.1s infinite linear;
+  animation: load 1.1s infinite linear;
+}
+.loader-tit {
+  font-size: 0.3rem;
+  color: #545454;
+  margin-left: 0.3rem;
+}
+.load .loader,
+.load .loader:after {
+  border-radius: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+}
+@-webkit-keyframes load {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
+}
+@keyframes load {
+  0% {
+    -webkit-transform: rotate(0deg);
+    transform: rotate(0deg);
+  }
+  100% {
+    -webkit-transform: rotate(360deg);
+    transform: rotate(360deg);
+  }
 }
 </style>
